@@ -1,6 +1,5 @@
-import React, { useRef } from 'react'
+import React, { useRef, useState, useEffect, Suspense } from 'react'
 import { motion } from 'framer-motion'
-import Spline from '@splinetool/react-spline'
 import {
   ArrowRight,
   Sparkles,
@@ -14,6 +13,39 @@ import {
   Mail,
   Phone,
 } from 'lucide-react'
+
+// Lazy-load Spline to avoid hard crashes if WebGL or module fails
+const LazySpline = React.lazy(() => import('@splinetool/react-spline').then(m => ({ default: m.default })))
+
+// Simple error boundary so the page still renders even if a section crashes
+class SectionErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false }
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+  componentDidCatch(error, info) {
+    console.error('Section crashed:', error, info)
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="relative min-h-[60vh] grid place-items-center bg-[#1B1F3B] text-center">
+          <div className="mx-auto max-w-xl px-6">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80">
+              Rendering fallback
+            </div>
+            <h2 className="mt-4 text-white text-2xl font-semibold">Something went wrong loading this section.</h2>
+            <p className="mt-2 text-white/70 text-sm">You can still browse the rest of the page.</p>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 const Nav = () => {
   const links = [
@@ -50,11 +82,26 @@ const Nav = () => {
 }
 
 const Hero = () => {
+  const [canRenderSpline, setCanRenderSpline] = useState(false)
+
+  useEffect(() => {
+    // Only attempt rendering Spline in the browser
+    setCanRenderSpline(typeof window !== 'undefined')
+  }, [])
+
   return (
     <section id="home" className="relative min-h-[90vh] w-full overflow-hidden bg-[#1B1F3B]">
-      <div className="absolute inset-0">
-        <Spline scene="https://prod.spline.design/VJLoxp84lCdVfdZu/scene.splinecode" style={{ width: '100%', height: '100%' }} />
-      </div>
+      <SectionErrorBoundary>
+        <div className="absolute inset-0">
+          {canRenderSpline ? (
+            <Suspense fallback={<div className="w-full h-full bg-[#1B1F3B]" />}> 
+              <LazySpline scene="https://prod.spline.design/VJLoxp84lCdVfdZu/scene.splinecode" style={{ width: '100%', height: '100%' }} />
+            </Suspense>
+          ) : (
+            <div className="w-full h-full bg-[#1B1F3B]" />
+          )}
+        </div>
+      </SectionErrorBoundary>
 
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#1B1F3B]/40 via-[#1B1F3B]/70 to-[#1B1F3B]" />
 
